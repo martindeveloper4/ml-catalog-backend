@@ -1,0 +1,58 @@
+service: pinateriaml-backend
+
+frameworkVersion: '3'
+
+provider:
+  name: aws
+  runtime: nodejs20.x
+  region: us-east-1
+  stage: ${opt:stage, 'dev'}
+  # Lambda timeout and memory
+  timeout: 29
+  memorySize: 256
+  environment:
+    NODE_ENV: ${self:provider.stage}
+    DB_HOST: ${env:DB_HOST}
+    DB_PORT: ${env:DB_PORT, '3306'}
+    DB_USER: ${env:DB_USER}
+    DB_PASSWORD: ${env:DB_PASSWORD}
+    DB_NAME: ${env:DB_NAME}
+    JWT_SECRET: ${env:JWT_SECRET}
+    JWT_EXPIRES_IN: ${env:JWT_EXPIRES_IN, '8h'}
+    CORS_ORIGIN: ${env:CORS_ORIGIN, '*'}
+
+functions:
+  api:
+    handler: src/handler.handler
+    events:
+      # Catch all routes including root
+      - http:
+          path: /
+          method: ANY
+          cors: true
+      - http:
+          path: /{proxy+}
+          method: ANY
+          cors: true
+
+plugins:
+  - serverless-esbuild
+  - serverless-offline
+
+custom:
+  esbuild:
+    bundle: true
+    minify: false
+    sourcemap: true
+    # mysql2 needs native bindings — exclude them from bundle so Lambda layers can provide
+    external:
+      - mysql2
+    # Packages to include as-is (not bundled)
+    packager: npm
+    target: node20
+    platform: node
+    concurrency: 10
+
+  serverless-offline:
+    httpPort: 3001
+    noPrependStageInUrl: true
